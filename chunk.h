@@ -10,8 +10,8 @@ typedef enum {
 
 // dynamic array storing instructions
 typedef struct {
-    int16_t count;
-    int16_t capacity;
+    int32_t count;
+    int32_t capacity;
     uint8_t* code;
 } Chunk;
                     
