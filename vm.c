@@ -18,9 +18,11 @@ static void resetStack() {
 
 void initVM() {
     resetStack();
+    vm.objects = NULL;
 }
 
 void freeVM() {
+    freeObjects();
 }
 
 static void runtimeError(const char* format, ...) { // variadic function -> varying number of arguments

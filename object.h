@@ -17,6 +17,7 @@ typedef enum {
 
 struct Object {
     ObjectType type;
+    struct Object* next; // pointer to the next allocated object for garbage collection
 };
 
 struct ObjectString {
