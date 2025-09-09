@@ -24,6 +24,7 @@ struct ObjectString {
     Object object;
     int32_t length;
     char* chars;
+    uint32_t hash;
 };
 
 ObjectString* takeString(char* chars, int32_t length);
