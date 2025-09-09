@@ -12,6 +12,7 @@ typedef struct {
     uint8_t* ip; // instruction pointer - the location of the next to be executed instruction
     Value stack[STACK_MAX];
     Value* stackTop;
+    Table globals;
     Table strings; // table storing all unique strings
     Object* objects;
 } VM;
