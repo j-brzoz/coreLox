@@ -10,9 +10,11 @@ typedef enum {
     OP_NIL,
     OP_TRUE,
     OP_FALSE,
-    OP_POP, // for discarding expression statement result, like {foo("cat");}
+    OP_POP, // for discarding expression statement result, like {foo("cat");} and removing variables after exiting a scope
+    OP_GET_LOCAL,
     OP_GET_GLOBAL,
     OP_DEFINE_GLOBAL,
+    OP_SET_LOCAL,
     OP_SET_GLOBAL,
     OP_EQUAL,
     OP_GREATER,

@@ -125,6 +125,11 @@ static InterpretResult run() {
                 pop();
                 break;
             }
+            case OP_GET_LOCAL: {
+                uint8_t slot = READ_BYTE();
+                push(vm.stack[slot]);
+                break;
+            }
             case OP_GET_GLOBAL: {
                 ObjectString* name = READ_STRING();
                 Value value;
@@ -142,6 +147,11 @@ static InterpretResult run() {
                 tableSet(&vm.globals, name, peek(0));
                 // remove the value from the stack
                 pop();
+                break;
+            }
+            case OP_SET_LOCAL: {
+                uint8_t slot = READ_BYTE();
+                vm.stack[slot] = peek(0);
                 break;
             }
             case OP_SET_GLOBAL: {
