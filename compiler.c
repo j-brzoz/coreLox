@@ -234,13 +234,15 @@ static void ifStatement() {
     consume(TOKEN_RIGHT_PAREN, "Expected ')' after condition.");
 
     int32_t thenJump = emitJump(OP_JUMP_IF_FALSE);
-    emitByte(OP_POP); // to clean up the stack -> statements are required to have zero stack effect
+    // to clean up the stack -> statements are required to have zero stack effect
+    emitByte(OP_POP); 
     statement();
 
     int32_t elseJump = emitJump(OP_JUMP);
 
     patchJump(thenJump);
-    emitByte(OP_POP); // to clean up the stack -> statements are required to have zero stack effect
+    // to clean up the stack -> statements are required to have zero stack effect
+    emitByte(OP_POP);
     
     if (match(TOKEN_ELSE)) statement();
     patchJump(elseJump);
@@ -487,6 +489,28 @@ static void defineVariable(uint8_t global) {
     emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
+static void or_(bool canAssign) {
+    int32_t elseJump = emitJump(OP_JUMP_IF_FALSE);
+    int32_t endJump = emitJump(OP_JUMP);
+
+    patchJump(elseJump);
+    // to clean up the stack -> statements are required to have zero stack effect
+    emitByte(OP_POP);
+
+    parsePrecedence(PREC_OR);
+    patchJump(endJump);
+}
+
+static void and_(bool canAssign) {
+    int32_t endJump = emitJump(OP_JUMP_IF_FALSE);
+
+    // to clean up the stack -> statements are required to have zero stack effect
+    emitByte(OP_POP);
+    parsePrecedence(PREC_AND);
+
+    patchJump(endJump);
+} 
+
 ParseRule rules[] = {
     [TOKEN_LEFT_PAREN]      = {grouping,    NULL,       PREC_NONE},
     [TOKEN_RIGHT_PAREN]     = {NULL,        NULL,       PREC_NONE},
@@ -510,7 +534,7 @@ ParseRule rules[] = {
     [TOKEN_IDENTIFIER]      = {variable,    NULL,       PREC_NONE},
     [TOKEN_STRING]          = {string,      NULL,       PREC_NONE},
     [TOKEN_NUMBER]          = {number,      NULL,       PREC_NONE},
-    [TOKEN_AND]             = {NULL,        NULL,       PREC_NONE},
+    [TOKEN_AND]             = {NULL,        and_,       PREC_AND},
     [TOKEN_CLASS]           = {NULL,        NULL,       PREC_NONE},
     [TOKEN_ELSE]            = {NULL,        NULL,       PREC_NONE},
     [TOKEN_FALSE]           = {literal,     NULL,       PREC_NONE},
@@ -518,7 +542,7 @@ ParseRule rules[] = {
     [TOKEN_FUN]             = {NULL,        NULL,       PREC_NONE},
     [TOKEN_IF]              = {NULL,        NULL,       PREC_NONE},
     [TOKEN_NIL]             = {literal,     NULL,       PREC_NONE},
-    [TOKEN_OR]              = {NULL,        NULL,       PREC_NONE},
+    [TOKEN_OR]              = {NULL,        or_,        PREC_OR},
     [TOKEN_PRINT]           = {NULL,        NULL,       PREC_NONE},
     [TOKEN_RETURN]          = {NULL,        NULL,       PREC_NONE},
     [TOKEN_SUPER]           = {NULL,        NULL,       PREC_NONE},
