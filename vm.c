@@ -37,10 +37,19 @@ static void runtimeError(const char* format, ...) { // variadic function -> vary
     va_end(args);
     fputs("\n", stderr);
 
-    CallFrame* frame = &vm.frames[vm.frameCount - 1];
-    size_t instruction = frame->ip - frame->function->chunk.code - 1;
-    int32_t line = frame->function->chunk.lines[instruction];
-    fprintf(stderr, "[line %d] in script\n", line);
+    for (int32_t i = vm.frameCount - 1; i >= 0; i--) {
+        CallFrame* frame = &vm.frames[i];
+        ObjectFunction* function = frame->function;
+
+        // -1 because the ip is sitting on the next instruction to be executed
+        size_t instruction = frame->ip - function->chunk.code - 1;
+        fprintf(stderr, "[line %d] in ", function->chunk.lines[instruction]);
+        if (function->name == NULL) {
+            fprintf(stderr, "script\n");
+        } else {
+            fprintf(stderr, "%s()\n", function->name->chars);
+        }
+    }
 
     resetStack();
 }
@@ -76,6 +85,37 @@ static void concatenate() {
 
     ObjectString* result = takeString(chars, length);
     push(OBJECT_VAL(result));
+}
+
+static bool call(ObjectFunction* function, int32_t argCount) {
+    if (argCount != function->arity) {
+        runtimeError("Expected %d arguments, but got %d.", function->arity, argCount);
+        return false;
+    }
+
+    if (vm.frameCount == FRAMES_MAX) {
+        runtimeError("Stack overflow.");
+        return false;
+    }
+
+    CallFrame* frame = &vm.frames[vm.frameCount++];
+    frame->function = function;
+    frame->ip = function->chunk.code;
+    frame->slots = vm.stackTop - argCount - 1;
+    return true;
+}
+
+static bool callValue(Value callee, int32_t argCount) {
+    if (IS_OBJECT(callee)) {
+        switch (OBJECT_TYPE(callee)) {
+            case OBJECT_FUNCTION:
+                return call(AS_FUNCTION(callee), argCount);
+            default:
+                break; // non-callable object type
+        }
+    }
+    runtimeError("Only functions and classes are callable.");
+    return false;
 }
 
 static InterpretResult run() {
@@ -241,8 +281,30 @@ static InterpretResult run() {
                 frame->ip -= offset;
                 break;
             }
+            case OP_CALL: {
+                int32_t argCount = READ_BYTE();
+
+                // function identifier is 'argCount' slots away
+                if (!callValue(peek(argCount), argCount)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                frame = &vm.frames[vm.frameCount - 1];
+                break;
+            }
             case OP_RETURN: {
-                return INTERPRET_OK;
+                Value result = pop();
+
+                vm.frameCount--;
+                if (vm.frameCount == 0) { // check if the whole script is done
+                    pop(); // pop the implicit script function
+                    return INTERPRET_OK;
+                }
+
+                vm.stackTop = frame->slots;
+                push(result);
+
+                frame = &vm.frames[vm.frameCount - 1];
+                break;
             }
         }
     }
@@ -258,10 +320,7 @@ InterpretResult interpret(const char* source) {
     if (function == NULL) return INTERPRET_COMPILE_ERROR;
 
     push(OBJECT_VAL(function));
-    CallFrame* frame = &vm.frames[vm.frameCount++];
-    frame->function = function;
-    frame->ip = function->chunk.code;
-    frame->slots = vm.stack;
+    callValue(OBJECT_VAL(function), 0);
 
     return run();
 }
