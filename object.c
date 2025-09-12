@@ -74,6 +74,12 @@ ObjectFunction* newFunction() {
     return function;
 }
 
+ObjectNative* newNative(NativeFunction function) {
+    ObjectNative* native = ALLOCATE_OBJECT(ObjectNative, OBJECT_NATIVE);
+    native->function = function;
+    return native;
+}
+
 static void printFunction(ObjectFunction* function) {
     if (function->name == NULL) {
         printf("<script>");
@@ -86,6 +92,10 @@ void printObject(Value value) {
     switch (OBJECT_TYPE(value)) {
         case OBJECT_FUNCTION: {
             printFunction(AS_FUNCTION(value));
+            break;
+        }
+        case OBJECT_NATIVE: {
+            printf("<native fn>");
             break;
         }
         case OBJECT_STRING: {

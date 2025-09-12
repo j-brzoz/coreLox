@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <time.h>
 
 #include "common.h"
 #include "vm.h"
@@ -12,6 +13,19 @@
 // single global VM
 VM vm;
 
+static Value clockNative(int32_t argCount, Value* args) {
+    return NUMBER_VAL((double)clock());
+}
+
+static void defineNative(const char* name, NativeFunction function) {
+    // pushing and poping to ensure future garbage collector knows we're not done with the function 
+    push(OBJECT_VAL(copyString(name, (int32_t)strlen(name))));
+    push(OBJECT_VAL(newNative(function)));
+    tableSet(&vm.globals, AS_STRING(vm.stack[0]), vm.stack[1]);
+    pop();
+    pop();
+}
+
 static void resetStack() {
     vm.stackTop = vm.stack;
     vm.frameCount = 0;
@@ -22,6 +36,9 @@ void initVM() {
     vm.objects = NULL;
     initTable(&vm.strings);
     initTable(&vm.globals);
+
+    // define native functions
+    defineNative("clock", clockNative);
 }
 
 void freeVM() {
@@ -110,6 +127,13 @@ static bool callValue(Value callee, int32_t argCount) {
         switch (OBJECT_TYPE(callee)) {
             case OBJECT_FUNCTION:
                 return call(AS_FUNCTION(callee), argCount);
+            case OBJECT_NATIVE: {
+                NativeFunction native = AS_NATIVE(callee);
+                Value result = native(argCount, vm.stackTop - argCount);
+                vm.stackTop -= argCount + 1;
+                push(result);
+                return true;
+            }
             default:
                 break; // non-callable object type
         }
