@@ -10,7 +10,7 @@
 #define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
 
 typedef struct {
-    ObjectFunction* function;
+    ObjectClosure* closure;
     uint8_t* ip; // instruction pointer - the location of the next to be executed instruction
     Value* slots;
 } CallFrame;
@@ -22,6 +22,7 @@ typedef struct {
     Value* stackTop;
     Table globals;
     Table strings; // table storing all unique strings
+    ObjectUpvalue* openUpvalues;
     Object* objects;
 } VM;
 

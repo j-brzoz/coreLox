@@ -66,9 +66,31 @@ ObjectString* copyString(const char* chars, int32_t length) {
     return allocateString(heapChars, length, hash);
 }
 
+ObjectClosure* newClosure(ObjectFunction* function) {
+    ObjectUpvalue** upvalues = ALLOCATE(ObjectUpvalue*, function->upvalueCount);
+    for (int32_t i = 0; i < function->upvalueCount; i++) {
+        upvalues[i] = NULL;
+    }
+
+    ObjectClosure* closure = ALLOCATE_OBJECT(ObjectClosure, OBJECT_CLOSURE);
+    closure->function = function;
+    closure->upvalues = upvalues;
+    closure->upvalueCount = function->upvalueCount;
+    return closure;
+}
+
+ObjectUpvalue* newUpvalue(Value* slot) {
+    ObjectUpvalue* upvalue = ALLOCATE_OBJECT(ObjectUpvalue, OBJECT_UPVALUE);
+    upvalue->closed = NIL_VAL;
+    upvalue->location = slot;
+    upvalue->next = NULL;
+    return upvalue;
+}
+
 ObjectFunction* newFunction() {
     ObjectFunction* function = ALLOCATE_OBJECT(ObjectFunction, OBJECT_FUNCTION);
     function->arity = 0;
+    function->upvalueCount = 0;
     function->name = NULL;
     initChunk(&function->chunk);
     return function;
@@ -90,6 +112,10 @@ static void printFunction(ObjectFunction* function) {
 
 void printObject(Value value) {
     switch (OBJECT_TYPE(value)) {
+        case OBJECT_CLOSURE: {
+            printFunction(AS_CLOSURE(value)->function);
+            break;
+        }
         case OBJECT_FUNCTION: {
             printFunction(AS_FUNCTION(value));
             break;
@@ -100,6 +126,11 @@ void printObject(Value value) {
         }
         case OBJECT_STRING: {
             printf("%s", AS_CSTRING(value));
+            break;
+        }
+        case OBJECT_UPVALUE: { // will never actually execute -> users don't have "access" to upvalues
+            printf("upvalue");
+            break;
         }
     }
 }
