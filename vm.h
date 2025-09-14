@@ -24,6 +24,11 @@ typedef struct {
     Table strings; // table storing all unique strings
     ObjectUpvalue* openUpvalues;
     Object* objects;
+    int32_t grayCount;
+    int32_t grayCapacity;
+    Object** grayStack;
+    size_t bytesAllocated;
+    size_t nextGC;
 } VM;
 
 typedef enum {

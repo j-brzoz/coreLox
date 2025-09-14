@@ -131,3 +131,20 @@ ObjectString* tableFindString(Table* table, const char* chars, int32_t length, u
         index = (index + 1) % table->capacity;
     }
 }
+
+void tableRemoveWhite(Table* table) {
+    for (int32_t i = 0; i < table->capacity; i++) {
+        Entry* entry = &table->entries[i];
+        if (entry->key != NULL && !entry->key->object.isMarked) {
+            tableDelete(table, entry->key);
+        }
+    }
+}
+
+void markTable(Table* table) {
+    for (int32_t i = 0; i < table->capacity; i++) {
+        Entry* entry = &table->entries[i];
+        markObject((Object*)entry->key);
+        markValue(entry->value);
+    }
+}

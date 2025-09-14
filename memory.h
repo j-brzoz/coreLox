@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "object.h"
+#include "compiler.h"
 
 #define ALLOCATE(type, count) \
     (type*)reallocate(NULL, 0, sizeof(type) * (count))
@@ -23,5 +24,8 @@
 // dependent on two size arguments
 void* reallocate(void* pointer, size_t oldSize, size_t newSize);
 void freeObjects();
+void markObject(Object* object);
+void markValue(Value value);
+void collectGarbage();
 
 #endif
