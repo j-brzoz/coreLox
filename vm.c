@@ -45,6 +45,9 @@ void initVM() {
     initTable(&vm.strings);
     initTable(&vm.globals);
 
+    vm.initString = NULL;
+    vm.initString = copyString("init", 4);
+
     // define native functions
     defineNative("clock", clockNative);
 }
@@ -52,6 +55,7 @@ void initVM() {
 void freeVM() {
     freeTable(&vm.globals);
     freeTable(&vm.strings);
+    vm.initString = NULL;
     freeObjects();
 }
 
@@ -136,6 +140,22 @@ static bool call(ObjectClosure* closure, int32_t argCount) {
 static bool callValue(Value callee, int32_t argCount) {
     if (IS_OBJECT(callee)) {
         switch (OBJECT_TYPE(callee)) {
+            case OBJECT_BOUND_METHOD: {
+                ObjectBoundMethod* bound = AS_BOUND_METHOD(callee);
+                vm.stackTop[-argCount - 1] = bound->receiver;
+                return call(bound->method, argCount);
+            }
+            case OBJECT_CLASS: {
+                ObjectClass* klass = AS_CLASS(callee);
+                vm.stackTop[-argCount - 1] = OBJECT_VAL(newInstance(klass));
+                Value initializer;
+                if (tableGet(&klass->methods, vm.initString, &initializer)) {
+                    return call(AS_CLOSURE(initializer), argCount);
+                } else if (argCount != 0) {
+                    runtimeError("expected 0 arguments, but got %d.", argCount);
+                }
+                return true;
+            }
             case OBJECT_CLOSURE:
                 return call(AS_CLOSURE(callee), argCount);
             case OBJECT_NATIVE: {
@@ -151,6 +171,19 @@ static bool callValue(Value callee, int32_t argCount) {
     }
     runtimeError("Only functions and classes are callable.");
     return false;
+}
+
+static bool bindMethod(ObjectClass* klass, ObjectString* name) {
+    Value method;
+    if (!tableGet(&klass->methods, name, &method)) {
+        runtimeError("Undefined property '%s'.", name->chars);
+        return false;
+    }
+
+    ObjectBoundMethod* bound = newBoundMethod(peek(0), AS_CLOSURE(method));
+    pop();
+    push(OBJECT_VAL(bound));
+    return true;
 }
 
 static ObjectUpvalue* captureUpvalue(Value* local) {
@@ -187,6 +220,13 @@ static void closeUpvalues(Value* last) {
         upvalue->location = &upvalue->closed;
         vm.openUpvalues = upvalue->next;
     }
+}
+
+static void defineMethod(ObjectString* name) {
+    Value method = peek(0);
+    ObjectClass* klass = AS_CLASS(peek(1));
+    tableSet(&klass->methods, name, method);
+    pop();
 }
 
 static InterpretResult run() {
@@ -252,6 +292,27 @@ static InterpretResult run() {
                 push(*frame->closure->upvalues[slot]->location);
                 break;
             }
+            case OP_GET_PROPERTY: {
+                if(!IS_INSTANCE(peek(0))) {
+                    runtimeError("Only instances have properties.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjectInstance* instance = AS_INSTANCE(peek(0));
+                ObjectString* name = READ_STRING();
+                
+                Value value;
+                if (tableGet(&instance->fields, name, &value)) {
+                    pop(); // instance
+                    push(value);
+                    break;
+                }
+
+                if (!bindMethod(instance->klass, name)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
             case OP_GET_GLOBAL: {
                 ObjectString* name = READ_STRING();
                 Value value;
@@ -279,6 +340,20 @@ static InterpretResult run() {
             case OP_SET_UPVALUE: {
                 uint8_t slot = READ_BYTE();
                 *frame->closure->upvalues[slot]->location = peek(0);
+                break;
+            }
+            case OP_SET_PROPERTY: {
+                if(!IS_INSTANCE(peek(1))) {
+                    runtimeError("Only instances have fields.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjectInstance* instance = AS_INSTANCE(peek(1));
+                tableSet(&instance->fields, READ_STRING(), peek(0));
+
+                Value value = pop(); // remove value
+                pop(); // remove instance
+                push(value); // add value back
                 break;
             }
             case OP_SET_GLOBAL: {
@@ -407,6 +482,14 @@ static InterpretResult run() {
                 push(result);
 
                 frame = &vm.frames[vm.frameCount - 1];
+                break;
+            }
+            case OP_CLASS: {
+                push(OBJECT_VAL(newClass(READ_STRING())));
+                break;
+            }
+            case OP_METHOD: {
+                defineMethod(READ_STRING());
                 break;
             }
         }

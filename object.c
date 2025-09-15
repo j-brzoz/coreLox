@@ -73,6 +73,27 @@ ObjectString* copyString(const char* chars, int32_t length) {
     return allocateString(heapChars, length, hash);
 }
 
+ObjectBoundMethod* newBoundMethod(Value receiver, ObjectClosure* method) {
+    ObjectBoundMethod* bound = ALLOCATE_OBJECT(ObjectBoundMethod, OBJECT_BOUND_METHOD);
+    bound->receiver = receiver;
+    bound->method = method;
+    return bound;
+}
+
+ObjectInstance* newInstance(ObjectClass* klass) {
+    ObjectInstance* instance = ALLOCATE_OBJECT(ObjectInstance, OBJECT_INSTANCE);
+    instance->klass = klass;
+    initTable(&instance->fields);
+    return instance;
+}
+
+ObjectClass* newClass(ObjectString* name) {
+    ObjectClass* klass = ALLOCATE_OBJECT(ObjectClass, OBJECT_CLASS);
+    initTable(&klass->methods);
+    klass->name = name;
+    return klass;
+}
+
 ObjectClosure* newClosure(ObjectFunction* function) {
     ObjectUpvalue** upvalues = ALLOCATE(ObjectUpvalue*, function->upvalueCount);
     for (int32_t i = 0; i < function->upvalueCount; i++) {
@@ -119,6 +140,18 @@ static void printFunction(ObjectFunction* function) {
 
 void printObject(Value value) {
     switch (OBJECT_TYPE(value)) {
+        case OBJECT_BOUND_METHOD: {
+            printFunction(AS_BOUND_METHOD(value)->method->function);
+            break;
+        }
+        case OBJECT_INSTANCE: {
+            printf("%s instance", AS_INSTANCE(value)->klass->name->chars);
+            break;
+        }
+        case OBJECT_CLASS: {
+            printf("%s", AS_CLASS(value)->name->chars);
+            break;
+        }
         case OBJECT_CLOSURE: {
             printFunction(AS_CLOSURE(value)->function);
             break;

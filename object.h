@@ -4,21 +4,31 @@
 #include "common.h"
 #include "value.h"
 #include "chunk.h"
+#include "table.h"
 
 #define OBJECT_TYPE(value)  (AS_OBJECT(value)->type)
 
-#define IS_CLOSURE(value)   isObjectType(value, OBJECT_CLOSURE)
-#define IS_FUNCTION(value)  isObjectType(value, OBJECT_FUNCTION)
-#define IS_NATIVE(value)    isObjectType(value, OBJECT_NATIVE)
-#define IS_STRING(value)    isObjectType(value, OBJECT_STRING)
+#define IS_BOUND_METHOD(value)  isObjectType(value, OBJECT_BOUND_METHOD)
+#define IS_INSTANCE(value)      isObjectType(value, OBJECT_INSTANCE)
+#define IS_CLASS(value)         isObjectType(value, OBJECT_CLASS)
+#define IS_CLOSURE(value)       isObjectType(value, OBJECT_CLOSURE)
+#define IS_FUNCTION(value)      isObjectType(value, OBJECT_FUNCTION)
+#define IS_NATIVE(value)        isObjectType(value, OBJECT_NATIVE)
+#define IS_STRING(value)        isObjectType(value, OBJECT_STRING)
 
-#define AS_CLOSURE(value)   ((ObjectClosure*)AS_OBJECT(value))
-#define AS_FUNCTION(value)  ((ObjectFunction*)AS_OBJECT(value))
-#define AS_NATIVE(value)    (((ObjectNative*)AS_OBJECT(value))->function);
-#define AS_STRING(value)    ((ObjectString*)AS_OBJECT(value))
-#define AS_CSTRING(value)   (((ObjectString*)AS_OBJECT(value))->chars)
+#define AS_BOUND_METHOD(value)  ((ObjectBoundMethod*)AS_OBJECT(value))
+#define AS_INSTANCE(value)      ((ObjectInstance*)AS_OBJECT(value))
+#define AS_CLASS(value)         ((ObjectClass*)AS_OBJECT(value))
+#define AS_CLOSURE(value)       ((ObjectClosure*)AS_OBJECT(value))
+#define AS_FUNCTION(value)      ((ObjectFunction*)AS_OBJECT(value))
+#define AS_NATIVE(value)        (((ObjectNative*)AS_OBJECT(value))->function);
+#define AS_STRING(value)        ((ObjectString*)AS_OBJECT(value))
+#define AS_CSTRING(value)       (((ObjectString*)AS_OBJECT(value))->chars)
 
 typedef enum {
+    OBJECT_BOUND_METHOD,
+    OBJECT_INSTANCE,
+    OBJECT_CLASS,
     OBJECT_CLOSURE,
     OBJECT_UPVALUE,
     OBJECT_FUNCTION,
@@ -69,6 +79,27 @@ typedef struct {
     int32_t upvalueCount;
 } ObjectClosure;
 
+typedef struct {
+    Object object;
+    ObjectString* name;
+    Table methods;
+} ObjectClass;
+
+typedef struct {
+    Object object;
+    ObjectClass* klass;
+    Table fields;
+} ObjectInstance;
+
+typedef struct {
+    Object object;
+    Value receiver;
+    ObjectClosure* method;
+} ObjectBoundMethod;
+
+ObjectBoundMethod* newBoundMethod(Value receiver, ObjectClosure* method);
+ObjectInstance* newInstance(ObjectClass* klass);
+ObjectClass* newClass(ObjectString* name);
 ObjectClosure* newClosure(ObjectFunction* function);
 ObjectUpvalue* newUpvalue(Value* slot);
 ObjectFunction* newFunction();

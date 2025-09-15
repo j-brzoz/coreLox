@@ -13,10 +13,12 @@ typedef enum {
     OP_POP, // for discarding expression statement result, like {foo("cat");} and removing variables after exiting a scope
     OP_GET_LOCAL,
     OP_GET_UPVALUE,
+    OP_GET_PROPERTY,
     OP_GET_GLOBAL,
     OP_DEFINE_GLOBAL,
     OP_SET_LOCAL,
     OP_SET_UPVALUE,
+    OP_SET_PROPERTY,
     OP_SET_GLOBAL,
     OP_EQUAL,
     OP_GREATER,
@@ -35,6 +37,8 @@ typedef enum {
     OP_CLOSURE,
     OP_CLOSE_UPVALUE,
     OP_RETURN,
+    OP_CLASS,
+    OP_METHOD,
 } OpCode;
 
 // dynamic array storing instructions

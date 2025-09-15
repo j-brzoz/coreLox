@@ -41,6 +41,22 @@ static void freeObject(Object* object) {
 #endif
 
     switch (object->type) {
+        case OBJECT_BOUND_METHOD: {
+            FREE(OBJECT_BOUND_METHOD, object);
+            break;
+        }
+        case OBJECT_INSTANCE: {
+            ObjectInstance* instance = (ObjectInstance*)object;
+            freeTable(&instance->fields);
+            FREE(ObjectInstance, object);
+            break;
+        }
+        case OBJECT_CLASS: {
+            ObjectClass* klass = (ObjectClass*)object;
+            freeTable(&klass->methods);
+            FREE(ObjectClass, object);
+            break;
+        }
         case OBJECT_CLOSURE: {
             ObjectClosure* closure = (ObjectClosure*) object;
             FREE_ARRAY(ObjectUpvalue*, closure->upvalues, closure->upvalueCount);
@@ -136,6 +152,9 @@ static void markRoots() {
 
     // mark memory allocated by compiler
     markCompilerRoots();
+
+    // string for class initilizer
+    markObject((Object*)vm.initString);
 }
 
 static void blackenObject(Object* object) {
@@ -146,6 +165,24 @@ static void blackenObject(Object* object) {
 #endif
 
     switch (object->type) {
+        case OBJECT_BOUND_METHOD: {
+            ObjectBoundMethod* bound = (ObjectBoundMethod*)object;
+            markValue(bound->receiver);
+            markObject((Object*)bound->method);
+            break;
+        }
+        case OBJECT_INSTANCE: {
+            ObjectInstance* instance = (ObjectInstance*)object;
+            markObject((Object*)instance->klass);
+            markTable(&instance->fields);
+            break;
+        }
+        case OBJECT_CLASS: {
+            ObjectClass* klass = (ObjectClass*)object;
+            markObject((Object*)klass->name);
+            markTable(&klass->methods);
+            break;
+        }
         case OBJECT_CLOSURE: {
             ObjectClosure* closure = (ObjectClosure*)object;
             markObject((Object*)closure->function);
