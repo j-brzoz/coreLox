@@ -10,17 +10,22 @@
 
 void initTable(Table* table) {
     table->count = 0;
-    table->capacity = 0;
+    table->capacity = -1;
     table->entries = NULL;
 }
 
 void freeTable(Table* table) {
-    FREE_ARRAY(Entry, table->entries, table->capacity);
+    FREE_ARRAY(Entry, table->entries, table->capacity + 1);
     initTable(table);
 }
 
 static Entry* findEntry(Entry* entries, int32_t capacity, ObjectString* key) {
-    uint32_t index = key->hash % capacity;
+    // We can replace that slow modulo operator with a fast subtraction followed 
+    // by a very fast bitwise and (hash % capacity is the same as hash & (capacity -1)). 
+    // We can do this, because capacity is a power of two. To make this even 
+    // faster we change the representation of capacity to capacity - 1, so we 
+    // are left with only very fast bitwise and.
+    uint32_t index = key->hash & capacity; 
     Entry* tombstone = NULL;
 
     for(;;) {
@@ -35,20 +40,20 @@ static Entry* findEntry(Entry* entries, int32_t capacity, ObjectString* key) {
         } else if (entry->key == key) {
             return entry;                                        // key
         }
-        index = (index + 1) % capacity; // linear probing
+        index = (index + 1) & capacity; // linear probing
     }
 }
 
 static void adjustCapacity(Table* table, int32_t capacity) {
-    Entry* entries = ALLOCATE(Entry, capacity);
-    for (int32_t i = 0; i < capacity; i++) {
+    Entry* entries = ALLOCATE(Entry, capacity + 1);
+    for (int32_t i = 0; i <= capacity; i++) {
         entries[i].key = NULL;
         entries[i].value = NIL_VAL;
     }
 
     table->count = 0;
     // recaluculate new entries
-    for(int32_t i = 0; i < table->capacity; i++) {
+    for(int32_t i = 0; i <= table->capacity; i++) {
         Entry* entry = &table->entries[i];
         if (entry->key == NULL) continue;
         Entry* dest = findEntry(entries, capacity, entry->key);
@@ -57,7 +62,7 @@ static void adjustCapacity(Table* table, int32_t capacity) {
         table->count++;
     }
 
-    FREE_ARRAY(Entry, table->entries, table->capacity);
+    FREE_ARRAY(Entry, table->entries, table->capacity + 1);
     table->entries = entries;
     table->capacity = capacity;
 }
@@ -74,8 +79,8 @@ bool tableGet(Table* table, ObjectString* key, Value* value) {
 }
 
 bool tableSet(Table* table, ObjectString* key, Value value) {
-    if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
-        int32_t capacity = GROW_CAPACITY(table->capacity);
+    if (table->count + 1 > (table->capacity + 1) * TABLE_MAX_LOAD) {
+        int32_t capacity = GROW_CAPACITY(table->capacity + 1) - 1;
         adjustCapacity(table, capacity);
     }
 
@@ -104,7 +109,7 @@ bool tableDelete(Table* table, ObjectString* key) {
 }
 
 void tableAddAll(Table* from, Table* to) {
-    for (int32_t i = 0; i < from->capacity; i++) {
+    for (int32_t i = 0; i <= from->capacity; i++) {
         Entry* entry = &from->entries[i];
         if (entry->key != NULL) {
             tableSet(to, entry->key, entry->value);
@@ -115,7 +120,8 @@ void tableAddAll(Table* from, Table* to) {
 ObjectString* tableFindString(Table* table, const char* chars, int32_t length, uint32_t hash) {
     if (table->count == 0) return NULL;
 
-    uint32_t index = hash % table->capacity;
+    // look in findEntry for explanation
+    uint32_t index = hash & table->capacity;
     for(;;) {
         Entry* entry = &table->entries[index];
 
@@ -128,12 +134,12 @@ ObjectString* tableFindString(Table* table, const char* chars, int32_t length, u
             // found it
             return entry->key;
         }
-        index = (index + 1) % table->capacity;
+        index = (index + 1) & table->capacity;
     }
 }
 
 void tableRemoveWhite(Table* table) {
-    for (int32_t i = 0; i < table->capacity; i++) {
+    for (int32_t i = 0; i <= table->capacity; i++) {
         Entry* entry = &table->entries[i];
         if (entry->key != NULL && !entry->key->object.isMarked) {
             tableDelete(table, entry->key);
@@ -142,7 +148,7 @@ void tableRemoveWhite(Table* table) {
 }
 
 void markTable(Table* table) {
-    for (int32_t i = 0; i < table->capacity; i++) {
+    for (int32_t i = 0; i <= table->capacity; i++) {
         Entry* entry = &table->entries[i];
         markObject((Object*)entry->key);
         markValue(entry->value);
