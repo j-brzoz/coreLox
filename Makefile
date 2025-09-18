@@ -1,18 +1,24 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -O3
-SRC = $(wildcard *.c)
-OBJ = $(SRC:.c=.o)
-BIN = program.exe
+CFLAGS = -Wall -Wextra -O3 -I./src/include
+
+SRC = $(wildcard src/*.c)
+OBJ = $(patsubst src/%.c,bin/%.o,$(SRC))
+BIN_DIR = bin
+BIN = $(BIN_DIR)/corelox.exe
 
 all: $(BIN)
 
-$(BIN): $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^
+$(BIN): $(OBJ) | $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $(BIN) $(OBJ)
 
-%.o: %.c
+bin/%.o: src/%.c | $(BIN_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(BIN_DIR):
+	@if not exist "$(BIN_DIR)" mkdir "$(BIN_DIR)"
+
 clean:
-	del /Q $(OBJ) $(BIN) 2>nul || true
+	@if exist "$(BIN_DIR)" del /Q "$(BIN_DIR)\*.o" 2>nul
+	@if exist "$(BIN_DIR)\corelox.exe" del /Q "$(BIN_DIR)\corelox.exe" 2>nul
 
 .PHONY: all clean
