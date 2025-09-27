@@ -21,4 +21,12 @@ clean:
 	@if exist "$(BIN_DIR)" del /Q "$(BIN_DIR)\*.o" 2>nul
 	@if exist "$(BIN_DIR)\corelox.exe" del /Q "$(BIN_DIR)\corelox.exe" 2>nul
 
-.PHONY: all clean
+lint:
+	cppcheck --force --enable=all --inconclusive --std=c99 -Isrc/include \
+		--suppress=missingIncludeSystem src
+
+format:
+	clang-format -i $(shell forfiles /S /M *.c /C "cmd /c echo @relpath") \
+	    $(shell forfiles /S /M *.h /C "cmd /c echo @relpath")
+
+.PHONY: all clean lint format
